@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Money Counter Practice</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'DM Serif Display', serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background: #f2f2f2;
+    }
+    #container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #clock {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      background: #fff9e6;
+      border: 2px solid #b87333;
+      border-radius: 25px;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 160px;
+      justify-content: center;
+    }
+    #clock i {
+      font-style: normal;
+      font-size: 1.4em;
+      margin-right: 6px;
+    }
+    #soundToggle {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 1em;
+      padding: 5px 10px;
+      background-color: #fff9e6;
+      border: 2px solid #b87333;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #statsBox {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      font-size: 1em;
+      padding: 10px;
+      background-color: #fff9e6;
+      border: 2px solid #b87333;
+      border-radius: 10px;
+      text-align: left;
+    }
+    #amount {
+      font-size: 2.5em;
+      margin: 20px;
+    }
+    #dropzone {
+      margin-top: 10px;
+      width: 90%;
+      min-height: 120px;
+      border: 2px dashed #aaa;
+      padding: 10px;
+      font-size: 1.2em;
+      background: white;
+    }
+    #bills {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 10px;
+    }
+    .bill, .coin {
+      width: 120px;
+      height: 70px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: grab;
+      user-select: none;
+      font-size: 1.2em;
+      font-family: 'DM Serif Display', serif;
+    }
+    .bill svg, .coin svg {
+      width: 100%;
+      height: 100%;
+    }
+    #result {
+      font-size: 1.4em;
+      margin-top: 20px;
+      min-height: 2em;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 1.2em;
+    }
+    #nextButton {
+      display: none;
+    }
+    #leaderboard {
+      margin-top: 20px;
+      font-size: 1.2em;
+    }
+    #leaderboard table {
+      width: 80%;
+      margin: 10px auto;
+      border-collapse: collapse;
+      background-color: #fff9e6;
+      border: 2px solid #b87333;
+    }
+    #leaderboard th, #leaderboard td {
+      padding: 8px 12px;
+      border: 1px solid #b87333;
+    }
+    #leaderboard th {
+      background-color: #ffe4b5;
+    }
+    /* Add this to fix the clock flickering */
+    #timer {
+      display: inline-block;
+      width: 3.5ch; /* Reserve space for up to 3 digits and a decimal point */
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="clock"><i>⏱</i><span id="timer">0.0</span>s</div>
+  <div id="soundToggle" onclick="toggleSound()">🔊 Sound On</div>
+  <div id="statsBox">Rounds Played: <span id="rounds">0</span></div>
+
+  <div id="container">
+    <div id="amount">$0.00</div>
+    <div id="dropzone" ondrop="drop(event)" ondragover="allowDrop(event)">Drop bills here</div>
+    <div id="bills"></div>
+    <button onclick="checkCount()" id="checkButton">Check</button>
+    <button onclick="nextRound()" id="nextButton">Next</button>
+    <div id="result"></div>
+    <div id="leaderboard">
+      <strong>Leaderboard:</strong>
+      <table>
+        <thead>
+          <tr><th>Result</th><th>Time</th><th>Target</th><th>Guess</th></tr>
+        </thead>
+        <tbody id="timesList"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <audio id="sound-correct" src="sucess.mp3" preload="auto"></audio>
+  <audio id="sound-wrong" src="wrong.mp3" preload="auto"></audio>
+
+  <script>
+    const billValues = [1, 5, 10, 20, 50, 100];
+    const coinValues = [0.01, 0.05, 0.10, 0.25, 0.5];
+    let currentAmount = 0;
+    let droppedTotal = 0;
+    let totalVisible = false;
+    let timerInterval;
+    let startTime;
+    let soundEnabled = true;
+    let roundsPlayed = 0;
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('soundToggle').textContent = soundEnabled ? '🔊 Sound On' : '🔇 Sound Off';
+    }
+
+    function generateAmount() {
+      let total = 0;
+      for (let i = 0; i < 5; i++) {
+        const arr = Math.random() > 0.5 ? billValues : coinValues;
+        total += arr[Math.floor(Math.random() * arr.length)] * Math.floor(Math.random() * 4);
+      }
+      currentAmount = parseFloat(total.toFixed(2));
+      document.getElementById("amount").textContent = `Count to: $${currentAmount.toFixed(2)}`;
+      document.getElementById("dropzone").textContent = "Drop bills here";
+      document.getElementById("result").textContent = "";
+      droppedTotal = 0;
+      totalVisible = false;
+      document.getElementById("checkButton").style.display = "inline-block";
+      document.getElementById("nextButton").style.display = "none";
+      startTimer();
+    }
+
+    function startTimer() {
+      const timerDisplay = document.getElementById("timer");
+      startTime = Date.now();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        timerDisplay.textContent = `${elapsed.toFixed(1)}`;
+      }, 100);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    function updateLeaderboard(isCorrect) {
+      const table = document.getElementById("timesList");
+      const finalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      const row = document.createElement("tr");
+      row.innerHTML = `<td>${isCorrect ? '✅' : '❌'}</td><td>${finalTime}s</td><td>$${currentAmount.toFixed(2)}</td><td>$${droppedTotal.toFixed(2)}</td>`;
+      table.prepend(row);
+      while (table.children.length > 5) table.removeChild(table.lastChild);
+      roundsPlayed++;
+      document.getElementById("rounds").textContent = roundsPlayed;
+    }
+
+    function checkCount() {
+      const result = document.getElementById("result");
+      totalVisible = true;
+      stopTimer();
+      const isCorrect = droppedTotal.toFixed(2) === currentAmount.toFixed(2); // Ensure exact match
+      document.getElementById("dropzone").textContent = `Total: $${droppedTotal.toFixed(2)}`;
+      result.textContent = isCorrect ? "✅ Correct! Click 'Next' to continue." : "❌ Incorrect. Click 'Next' to try again.";
+      if (soundEnabled) {
+        document.getElementById(isCorrect ? "sound-correct" : "sound-wrong").play();
+      }
+      updateLeaderboard(isCorrect);
+      document.getElementById("checkButton").style.display = "none";
+      document.getElementById("nextButton").style.display = "inline-block";
+    }
+
+    function allowDrop(ev) { ev.preventDefault(); }
+    function drag(ev) { ev.dataTransfer.setData("value", ev.target.getAttribute("data-value")); }
+    function drop(ev) {
+      ev.preventDefault();
+      const value = parseFloat(ev.dataTransfer.getData("value"));
+      droppedTotal += value;
+      if (totalVisible) {
+        document.getElementById("dropzone").textContent = `Total: $${droppedTotal.toFixed(2)}`;
+      }
+    }
+
+    function setupBills() {
+      const billsContainer = document.getElementById("bills");
+      billsContainer.innerHTML = "";
+
+      billValues.forEach(val => {
+        const bill = document.createElement("div");
+        bill.className = "bill";
+        bill.setAttribute("draggable", "true");
+        bill.setAttribute("data-value", val);
+        bill.ondragstart = drag;
+        bill.innerHTML = `
+          <svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="60" rx="8" fill="#66cc66" />
+            <path d="M10 30a20 20 0 0 1 20-20h40a20 20 0 0 1 20 20 20 20 0 0 1-20 20H30A20 20 0 0 1 10 30z" fill="#4CAF50" />
+            <text x="50" y="35" text-anchor="middle" font-size="16" fill="#ccffcc" font-weight="bold">$${val.toFixed(2)}</text>
+          </svg>`;
+        billsContainer.appendChild(bill);
+      });
+
+      coinValues.forEach(val => {
+        const baseColor = val === 0.01 ? '#b87333' : val === 0.05 ? '#808080' : val === 0.10 ? '#d4af37' : val === 0.25 ? '#c0c0c0' : '#999999';
+        const innerColor = val === 0.01 ? '#ffe5b4' : val === 0.05 ? '#dcdcdc' : val === 0.10 ? '#fff8dc' : val === 0.25 ? '#f5f5f5' : '#e6e6e6';
+        const centValue = Math.round(val * 100);
+        const coin = document.createElement("div");
+        coin.className = "coin";
+        coin.setAttribute("draggable", "true");
+        coin.setAttribute("data-value", val);
+        coin.ondragstart = drag;
+        coin.innerHTML = `
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="32" cy="32" r="30" fill="${baseColor}" />
+            <circle cx="32" cy="32" r="20" fill="${innerColor}" />
+            <text x="32" y="37" text-anchor="middle" font-size="14" fill="${baseColor}" font-weight="bold">${centValue}¢</text>
+          </svg>
+        `;
+        billsContainer.appendChild(coin);
+      });
+    }
+
+    function nextRound() {
+      setupBills();
+      generateAmount();
+    }
+
+    setupBills();
+    generateAmount();
+  </script>
+</body>
+</html>
